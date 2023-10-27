@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"gitlab.beeps.cn/common/cl"
@@ -91,6 +92,39 @@ func UnmarshalToken(c *gin.Context) AuthModel {
 	}
 	tokenInfo, _ = info.(AuthModel)
 	return tokenInfo
+}
+
+func ParseToken(token string) (tokenInfo AuthModel, err error) {
+	var req struct {
+		Token string `json:"token"`
+	}
+	var resp cl.ClRespModel
+
+	req.Token = token
+	err = cl.PostJsonStruct(checkTokenApi, &req, &resp)
+	if err != nil {
+		return
+	}
+	if resp.Code != 1 {
+		err = fmt.Errorf("auth fail,code is %d", resp.Code)
+		return
+	}
+	info, ok := resp.Data.(map[string]interface{})
+	if !ok {
+		err = fmt.Errorf("resp.Data fail")
+		return
+	}
+	infoX, err := json.Marshal(&info)
+	if err != nil {
+		err = fmt.Errorf("json.Marshal fail")
+		return
+	}
+	err = json.Unmarshal(infoX, &tokenInfo)
+	if err != nil {
+		err = fmt.Errorf("json.UnMarshal fail")
+		return
+	}
+	return
 }
 
 func MiddlewareAuth() gin.HandlerFunc {
